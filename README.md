@@ -1,7 +1,4 @@
- Ranger
-
-```markdown
-#  Rogue Offshoot Ranger
+ # Ranger
 
 **A Malleable, Cross-Platform C2 Framework with WordPress Mimicry & DNS Exfiltration**
 
