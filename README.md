@@ -1,3 +1,5 @@
+DISCLAIMER: FOR AUTHORIZED SECURITY TESTING AND EDUCATIONAL PURPOSES ONLY
+
  # Ranger
 
 **A Malleable, Cross-Platform C2 Framework with WordPress Mimicry & DNS Exfiltration**
